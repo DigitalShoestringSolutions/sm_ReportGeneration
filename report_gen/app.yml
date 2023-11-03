@@ -1,0 +1,10 @@
+version: '2'
+
+services:
+        app:
+            build: .
+            command: python3 ./report_gen.py
+            volumes:
+                - /etc/localtime:/etc/localtime:ro
+                - ./config.toml:/app/config.toml
+                - ./output/:/app/out/

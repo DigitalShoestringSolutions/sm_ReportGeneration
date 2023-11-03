@@ -1,0 +1,21 @@
+version: '2'
+
+services:
+    report_gen:
+        extends:
+            file: report_gen/app.yml
+            service: app
+        networks:
+            internal:
+                aliases:
+                    - report_gen.docker.local
+        logging:
+            driver: syslog
+            options:
+                tag: docker-report-gen
+        restart: unless-stopped
+        depends_on:
+            - "timeseries-db"
+networks:
+    internal:
+        # name: shoestring-internal

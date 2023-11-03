@@ -1,0 +1,24 @@
+logging = "info"
+
+[source]
+url = "http://timeseries-db.docker.local:8086"
+bucket = "production_tracking"
+org = "SHOESTRING"
+token = "l3Z9k31lKzZ-Ixupk_s3FjinRas-HHbvf7tsBTpEUCP7m5YQL0Z0jF1yjQEC_ZNYLEr6xkSZfuXMUP_spHe9cg=="
+
+[report]
+time="00:00"
+interval="1d"
+window="1d"
+
+[email.smtp]
+host="smtp.office365.com"
+port=587
+timeout=5
+username="sstest10@outlook.com"
+password="Sho3stringTes#"
+
+[email]
+to="gth24@cam.ac.uk"
+
+
