@@ -2,7 +2,7 @@ logging = "info"
 
 [source]
 url = "http://timeseries-db.docker.local:8086"
-bucket = "production_tracking"
+bucket = "stoppage_monitoring"
 org = "SHOESTRING"
 token = "l3Z9k31lKzZ-Ixupk_s3FjinRas-HHbvf7tsBTpEUCP7m5YQL0Z0jF1yjQEC_ZNYLEr6xkSZfuXMUP_spHe9cg=="
 
