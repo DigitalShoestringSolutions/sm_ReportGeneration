@@ -162,25 +162,25 @@ def downtime_report(query_api,org,bucket,start,end):
     logger.debug(f"prod_df {prod_df.keys()}")                
     
     try:
-	del prod_df["result"]
-	del prod_df["table"]
-	machine_name_col = prod_df['machine_name']
-	prod_df = prod_df.drop(columns=['machine_name'])
-	prod_df.insert(loc=0, column='machine_name', value=machine_name_col)
+        del prod_df["result"]
+        del prod_df["table"]
+        machine_name_col = prod_df['machine_name']
+        prod_df = prod_df.drop(columns=['machine_name'])
+        prod_df.insert(loc=0, column='machine_name', value=machine_name_col)
 
-	prod_df.rename(columns={'duration': 'duration (seconds)'}, inplace=True)
+        prod_df.rename(columns={'duration': 'duration (seconds)'}, inplace=True)
 
-	prod_df['Date'] = pd.to_datetime(prod_df['_time']).dt.date
-	prod_df['Time'] = pd.to_datetime(prod_df['_time']).dt.time
+        prod_df['Date'] = pd.to_datetime(prod_df['_time']).dt.date
+        prod_df['Time'] = pd.to_datetime(prod_df['_time']).dt.time
 
 
-	logger.debug(f"prod_df {prod_df}")                
+        logger.debug(f"prod_df {prod_df}")                
 
-	prod_df.sort_values(by='_time',ascending=True)
-	del prod_df["_time"]
+        prod_df.sort_values(by='_time',ascending=True)
+        del prod_df["_time"]
     except KeyError:
-	logger.debug("KeyError")
-	pass
+        logger.debug("KeyError")
+        pass
 
 
     return generate_report(f"downtime_report-produced-{datetime.date.today()}", prod_df)
