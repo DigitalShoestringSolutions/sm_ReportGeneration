@@ -15,10 +15,10 @@ window="1d"
 host="smtp.office365.com"
 port=587
 timeout=5
-username="sstest10@outlook.com"
-password="Sho3stringTes#"
+username="your_email@outlook.com"
+password="your_password"
 
 [email]
-to="gth24@cam.ac.uk"
+to="recieving_email@cam.ac.uk"
 
 
