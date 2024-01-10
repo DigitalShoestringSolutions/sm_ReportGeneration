@@ -43,6 +43,8 @@ def analyse(conf):
     interval_str = conf["report"].get("interval","1h")
     interval = get_time_delta(interval_str)
 
+    sample_interval = conf["report"].get("sample_interval","10s")
+
     anchor_time_str = conf["report"].get("time","12:00")
     anchor_time = datetime.time.fromisoformat(anchor_time_str)
 
@@ -50,6 +52,8 @@ def analyse(conf):
 
     logger.debug(f"window_str {window_str}")
     logger.debug(f"window {window}")
+    logger.debug(f"sample interval {sample_interval}")
+
 
     next_time = datetime.datetime.combine(datetime.date.today(),anchor_time)
     now = datetime.datetime.now()
@@ -63,15 +67,18 @@ def analyse(conf):
     def t_now():
         return datetime.datetime.now().timestamp()
     
-    scheduler = sched.scheduler(t_now,time.sleep)
 
-    while True:
-        logger.info(f"Next running at {next_time.isoformat()}")
-        scheduler.enterabs(next_time.timestamp(),1,do_analysis,kwargs={"client":client,"org":org,"bucket":bucket,"window":window,"email_conf":email_conf})
-        scheduler.run()
-        next_time = next_time+interval
+    do_analysis(client,org,bucket,window,email_conf,sample_interval )
 
-def do_analysis(client,org,bucket,window,email_conf):
+    # scheduler = sched.scheduler(t_now,time.sleep)
+
+    # while True:
+    #     logger.info(f"Next running at {next_time.isoformat()}")
+    #     scheduler.enterabs(next_time.timestamp(),1,do_analysis,kwargs={"client":client,"org":org,"bucket":bucket,"window":window,"email_conf":email_conf, "sample_interval":sample_interval})
+    #     scheduler.run()
+    #     next_time = next_time+interval
+
+def do_analysis(client,org,bucket,window,email_conf,sample_interval):
     logger.info("Running Analysis")
     
     query_api = client.query_api()
@@ -81,119 +88,46 @@ def do_analysis(client,org,bucket,window,email_conf):
     end = now.isoformat()
     logger.info(f"Analysis window is from {start} to {end}")
 
-    rate_fn = rate_report(query_api,org,bucket,start,end)
-    prod_fn = production_report(query_api,org,bucket,start,end)
+    # down_fn = downtime_report(query_api,org,bucket,start,end)
+    util_fn = utilisation_report(query_api,org,bucket,start,end,sample_interval)
 
-    email_sender.send_email(email_conf,f"Production Report {datetime.date.today()}","Report Attached",[rate_fn,prod_fn])
+    logger.info(f"email check: {email_conf.get('to',False)}")
 
-def production_report(query_api,org,bucket,start,end):
-        query = f'''from(bucket: "{bucket}")
-          |> range(start: {start}, stop: {end})
-          |> filter(fn: (r) => r["_measurement"] == "production")
-          |> pivot(columnKey: ["_field"], valueColumn: "_value", rowKey: ["_time"])
-          |> drop(columns: ["_start","_stop","_measurement"])'''
-        logger.debug(f"flux_query is {query}")
- 
-        timer_start = time.time()
-        prod_df = query_api.query_data_frame(org=org, query=query)
-        timer_end = time.time()
-        
-        logger.debug(f"influx query took: {timer_end - timer_start}s")
-        logger.debug(f"prod_df {prod_df.keys()}")                
-        
+    if email_conf.get("to",False) != "": 
+        email_sender.send_email(email_conf,f"Production Report {datetime.date.today()}","Report Attached",[down_fn,util_fn])
+
+
+
+def utilisation_report(query_api,org,bucket,start,end,sample_interval):
+    query = f'''
+        from(bucket: "{bucket}")
+            |> range(start: {start}, stop: {end})
+            |> filter(fn: (r) => r["_measurement"] == "equipment_power_usage")
+            |> aggregateWindow(every: {sample_interval}, fn: mean, createEmpty: false)
+            |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+            |> drop(columns: ["_start","_stop"])
+            |> sort(columns: ["_time"])
+        '''   
+    logger.debug(f"flux_query is {query}")
+
+
+    timer_start = time.time()
+    prod_df = query_api.query_data_frame(org=org, query=query)
+    timer_end = time.time()
+    
+    logger.debug(f"influx query took: {timer_end - timer_start}s")
+    logger.debug(f"prod_df {prod_df.keys()}")    
+
+    try: 
         del prod_df["result"]
         del prod_df["table"]
+    except KeyError:
+        logger.debug("KeyError")
+        pass
 
-        prod_df['Date'] = pd.to_datetime(prod_df['_time']).dt.date
-        prod_df['Time'] = pd.to_datetime(prod_df['_time']).dt.time
+    return generate_report(f"power-data", prod_df)
 
-        logger.debug(f"prod_df {prod_df}")                
 
-        query = f'''from(bucket: "{bucket}")
-          |> range(start: {start}, stop: {end})
-          |> filter(fn: (r) => r["_measurement"] == "batch_details")
-          |> pivot(columnKey: ["_field"], valueColumn: "_value", rowKey: ["_time"])
-          |> drop(columns: ["_start","_stop","_measurement"])'''
-  
-        timer_start = time.time()
-        batch_df = query_api.query_data_frame(org=org, query=query)
-        timer_end = time.time()
-        
-        logger.debug(f"influx query took: {timer_end - timer_start}s")
-
-        del batch_df["result"]
-        del batch_df["table"]
-        del batch_df["quantity"]
-        logger.debug(f"batch_df {batch_df}")
-
-        prod_df.sort_values(by='_time',ascending=True)
-        batch_df.sort_values(by='_time',ascending=True)
-        
-        ind_list = [
-                {
-                    "i":prod_df.index[0],
-                    "batch":"not_set",
-                    "product":"not_set",
-                    "expires":"not_set",
-                    }
-                ]
-
-        for i in batch_df.index:
-            next_ind = prod_df['_time'].searchsorted(batch_df['_time'][i], side='left')
-            ind_list.append({
-                "i":next_ind,
-                "batch":batch_df.iloc[i]["batch"],
-                "product":batch_df.iloc[i]["product"],
-                "expires":batch_df.iloc[i]["expires"],
-                })
-        
-        ind_list.append({"i":prod_df.index[-1]+1})
-
-        logger.debug(f"ind_list {ind_list}")
-
-        batch = []
-        product = []
-        expires = []
-        start_ind = ind_list[0]
-        
-        for next_ind in ind_list[1:]:
-            batch = batch + [start_ind['batch']]*(next_ind["i"]-start_ind["i"])
-            product = product + [start_ind["product"]]*(next_ind["i"]-start_ind["i"])
-            expires = expires + [start_ind["expires"]]*(next_ind["i"]-start_ind["i"])
-            start_ind = next_ind
-
-        prod_df['batch'] = batch
-        prod_df['product'] = product
-        prod_df['expires'] = expires
-        
-        return generate_report(f"produced-{datetime.date.today()}", prod_df)
-
-def rate_report(query_api,org,bucket,start,end):
-        query = f'''from(bucket: "{bucket}")
-          |> range(start: {start}, stop: {end})
-          |> filter(fn: (r) => r["_measurement"] == "production")
-          |> filter(fn: (r) => r["_field"] == "count")
-          |> aggregateWindow(every:5m, fn: sum, createEmpty: true)
-          |> pivot(columnKey: ["_field"], valueColumn: "_value", rowKey: ["_time"])
-          |> drop(columns: ["_start","_stop","_measurement"])
-          '''
-    
-        logger.debug(f"flux_query is {query}")
- 
-        timer_start = time.time()
-        prod_rate_df = query_api.query_data_frame(org=org, query=query)
-        timer_end = time.time()
-        
-        logger.debug(f"influx query took: {timer_end - timer_start}s")
-        logger.debug(f"prod_rate_df {prod_rate_df.keys()}")                
-        
-        del prod_rate_df["result"]
-        del prod_rate_df["table"]
-
-        prod_rate_df['Date'] = pd.to_datetime(prod_rate_df['_time']).dt.date
-        prod_rate_df['Time'] = pd.to_datetime(prod_rate_df['_time']).dt.time
-
-        return generate_report(f"production_rate-{datetime.date.today()}", prod_rate_df)
 
     
 def generate_report(name,data):
