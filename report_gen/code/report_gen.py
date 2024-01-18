@@ -68,15 +68,15 @@ def analyse(conf):
         return datetime.datetime.now().timestamp()
     
 
-    do_analysis(client,org,bucket,window,email_conf,sample_interval )
+    # do_analysis(client,org,bucket,window,email_conf,sample_interval )
 
-    # scheduler = sched.scheduler(t_now,time.sleep)
+    scheduler = sched.scheduler(t_now,time.sleep)
 
-    # while True:
-    #     logger.info(f"Next running at {next_time.isoformat()}")
-    #     scheduler.enterabs(next_time.timestamp(),1,do_analysis,kwargs={"client":client,"org":org,"bucket":bucket,"window":window,"email_conf":email_conf, "sample_interval":sample_interval})
-    #     scheduler.run()
-    #     next_time = next_time+interval
+    while True:
+        logger.info(f"Next running at {next_time.isoformat()}")
+        scheduler.enterabs(next_time.timestamp(),1,do_analysis,kwargs={"client":client,"org":org,"bucket":bucket,"window":window,"email_conf":email_conf, "sample_interval":sample_interval})
+        scheduler.run()
+        next_time = next_time+interval
 
 def do_analysis(client,org,bucket,window,email_conf,sample_interval):
     logger.info("Running Analysis")
@@ -88,13 +88,12 @@ def do_analysis(client,org,bucket,window,email_conf,sample_interval):
     end = now.isoformat()
     logger.info(f"Analysis window is from {start} to {end}")
 
-    # down_fn = downtime_report(query_api,org,bucket,start,end)
     util_fn = utilisation_report(query_api,org,bucket,start,end,sample_interval)
 
     logger.info(f"email check: {email_conf.get('to',False)}")
 
     if email_conf.get("to",False) != "": 
-        email_sender.send_email(email_conf,f"Production Report {datetime.date.today()}","Report Attached",[down_fn,util_fn])
+        email_sender.send_email(email_conf,f"Production Report {datetime.date.today()}","Report Attached",[util_fn])
 
 
 
