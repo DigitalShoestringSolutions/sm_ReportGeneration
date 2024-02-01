@@ -1,0 +1,7 @@
+,_measurement,operation,outcome,part,reason,count,Date,Time
+0,reported_defect,Cutting,pass,002,pass,1,2024-02-01,11:00:18
+1,reported_defect,Cutting,rework,001,Rough Edge,1,2024-02-01,11:00:11
+2,reported_defect,Cutting,scrap,003,Bad Cut,1,2024-02-01,11:00:23
+3,reported_defect,Sanding,pass,001,pass,1,2024-02-01,11:00:33
+4,reported_defect,Sanding,pass,002,pass,1,2024-02-01,11:00:41
+5,reported_defect,Sanding,rework,002,Rough Edge,1,2024-02-01,11:00:36

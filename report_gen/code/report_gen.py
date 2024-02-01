@@ -84,40 +84,38 @@ def do_analysis(client,org,bucket,window,email_conf):
     end = now.isoformat()
     logger.info(f"Analysis window is from {start} to {end}")
 
-    down_fn = downtime_report(query_api,org,bucket,start,end)
-    util_fn = utilisation_report(query_api,org,bucket,start,end)
+    scrap_fn = scrap_report(query_api,org,bucket,start,end)
+    sum_fn = scrap_summary_report(query_api,org,bucket,start,end)
 
     logger.info(f"email check: {email_conf.get('to',False)}")
 
     if email_conf.get("to",False) != "": 
-        email_sender.send_email(email_conf,f"Production Report {datetime.date.today()}","Report Attached",[down_fn,util_fn])
+        email_sender.send_email(email_conf,f"Production Report {datetime.date.today()}","Report Attached",[scrap_fn,sum_fn])
 
 
 
-def utilisation_report(query_api,org,bucket,start,end):
+def scrap_summary_report(query_api,org,bucket,start,end):
     query = f'''
         import "contrib/tomhollingworth/events"
 
         from(bucket: "{bucket}")
             |> range(start: {start}, stop: {end})
-            |> filter(fn: (r) => r["_measurement"] == "fault_tracking")
-            |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
-            |> keep(columns: ["_time","running","status","machine_name"])
+            |> filter(fn: (r) => r["_measurement"] == "reported_defect")  
             |> drop(columns: ["_start","_stop"])
-            |> sort(columns: ["_time"])
-            |> events.duration(unit: 1s, stop: {end})
-            |> filter(fn: (r) => not exists r["status"] or r["status"] != "Shift End")
-            |> group(columns: ["running","machine_name"])
-            |> sum(column: "duration")
-            |> pivot(rowKey: [], columnKey: ["running"], valueColumn: "duration")
-            |> map(fn: (r) => ({{r with utilisation: if exists r.false and r.false!=0 then (if exists r.true then float(v:r.true) / float(v:r.true+r.false) *100.0 else 0.0) else 100.0}}))
-            |> keep(columns: ["utilisation","machine_name"])
+            |> group(columns: ["operation", "outcome"])
+            |> count()
+            |> pivot(rowKey: [], columnKey: ["outcome"], valueColumn: "_value")
         '''   
+
     logger.debug(f"flux_query is {query}")
 
 
     timer_start = time.time()
     prod_df = query_api.query_data_frame(org=org, query=query)
+    if type(prod_df) == list:
+        prod_df = pd.concat(prod_df)
+        logger.debug(f"Concatanted results")
+
     timer_end = time.time()
     
     logger.debug(f"influx query took: {timer_end - timer_start}s")
@@ -126,29 +124,23 @@ def utilisation_report(query_api,org,bucket,start,end):
     try: 
         del prod_df["result"]
         del prod_df["table"]
-        prod_df.rename(columns={'utilisation': 'utilisation (%)'}, inplace=True)
     except KeyError:
         logger.debug("KeyError")
         pass
 
-    return generate_report(f"utilisation_report-produced-{datetime.date.today()}", prod_df)
+    return generate_report(f"scrap_summary_report-produced-{datetime.date.today()}", prod_df)
 
-def downtime_report(query_api,org,bucket,start,end):
+def scrap_report(query_api,org,bucket,start,end):
     query = f'''
-    import "contrib/tomhollingworth/events"
+        import "contrib/tomhollingworth/events"
 
-    from(bucket: "{bucket}")
-        |> range(start: {start}, stop: {end})
-        |> filter(fn: (r) => r["_measurement"] == "fault_tracking")
-        |> filter(fn: (r) => r["_field"] == "status")
-        |> keep(columns: ["_time","_value","_field","machine_id", "machine_name"])
-        |> drop(columns: ["_start","_stop","status"])
-        |> sort(columns: ["_time"])
-        |> events.duration(unit: 1s, stop: {end})
-        |> duplicate(column: "_value",as: "bucket")
-        |> group(columns: ["bucket"])
-        |> filter(fn: (r) => exists r.bucket and r.bucket != "Running" and r.bucket != "Shift End")
-        |> drop(columns: ["_field","bucket","machine_id"])'''
+        from(bucket: "{bucket}")
+            |> range(start: {start}, stop: {end})
+            |> filter(fn: (r) => r["_measurement"] == "reported_defect")              
+            |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+            |> drop(columns: ["_start","_stop"])
+            |> sort(columns: ["_time"])
+        '''   
 
 
     logger.debug(f"flux_query is {query}")
@@ -164,15 +156,9 @@ def downtime_report(query_api,org,bucket,start,end):
     try:
         del prod_df["result"]
         del prod_df["table"]
-        machine_name_col = prod_df['machine_name']
-        prod_df = prod_df.drop(columns=['machine_name'])
-        prod_df.insert(loc=0, column='machine_name', value=machine_name_col)
-
-        prod_df.rename(columns={'duration': 'duration (seconds)'}, inplace=True)
 
         prod_df['Date'] = pd.to_datetime(prod_df['_time']).dt.date
         prod_df['Time'] = pd.to_datetime(prod_df['_time']).dt.time
-
 
         logger.debug(f"prod_df {prod_df}")                
 
@@ -183,7 +169,7 @@ def downtime_report(query_api,org,bucket,start,end):
         pass
 
 
-    return generate_report(f"downtime_report-produced-{datetime.date.today()}", prod_df)
+    return generate_report(f"scrap_report-produced-{datetime.date.today()}", prod_df)
 
     
 def generate_report(name,data):
