@@ -5,6 +5,7 @@ __pycache__/
 
 # Explicit exclusions
 **/data/*
+output/
 
 # Explicit inclusions
 !**/.gitkeep
