@@ -1,4 +1,4 @@
-logging = "info"
+logging = "info" # module log level
 
 [source]
 url = "http://timeseries-db.docker.local:8086"
@@ -7,17 +7,17 @@ org = "SHOESTRING"
 token = "l3Z9k31lKzZ-Ixupk_s3FjinRas-HHbvf7tsBTpEUCP7m5YQL0Z0jF1yjQEC_ZNYLEr6xkSZfuXMUP_spHe9cg=="
 
 [report]
-time="00:00"
-interval="1d"
-window="1d"
+time="00:00"  # What time the first report should be sent
+interval="1d" # How frequently reports should be sent
+window="1d"   # How much data should be included in each report
 
 [email]
 send_email=false
-to="recieving_email@cam.ac.uk"
+to="your_recieving_email@outlook.com" # separate multiple recipient addresses with commas, all inside the double quotes
 
 [email.smtp]
 host="smtp.office365.com"
 port=587
 timeout=5
-username="your_email@outlook.com"
+username="your_sending_email@outlook.com"
 password="your_password"
