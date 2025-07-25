@@ -11,15 +11,13 @@ time="00:00"
 interval="1d"
 window="1d"
 
+[email]
+send_email=false
+to="recieving_email@cam.ac.uk"
+
 [email.smtp]
 host="smtp.office365.com"
 port=587
 timeout=5
 username="your_email@outlook.com"
 password="your_password"
-
-[email]
-send_email=false
-to="recieving_email@cam.ac.uk"
-
-
