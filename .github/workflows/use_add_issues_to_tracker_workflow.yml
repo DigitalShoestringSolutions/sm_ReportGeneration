@@ -1,0 +1,13 @@
+name: Use issue to tracker workflow
+
+on:
+  issues:
+    types:
+      - opened
+      - reopened
+
+jobs:
+  call-issue-to-tracker:
+    uses: DigitalShoestringSolutions/CommonWorkflows/.github/workflows/add_issues_to_tracker.yml@master
+    secrets:
+      ADD_TO_PROJECT_PAT: ${{ secrets.ADD_TO_PROJECT_PAT }}
