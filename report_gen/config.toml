@@ -19,6 +19,7 @@ username="your_email@outlook.com"
 password="your_password"
 
 [email]
+send_email=false
 to="recieving_email@cam.ac.uk"
 
 
