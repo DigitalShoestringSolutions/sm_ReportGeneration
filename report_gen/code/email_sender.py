@@ -5,6 +5,7 @@ import json
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
+from email.utils import COMMASPACE
 import os
 
 logger = logging.getLogger("email_sender");
@@ -41,7 +42,7 @@ def connect_smtp(conf):
 
 def send_email(conf,subject,body,filenames):
     addr_from = conf['smtp']['username']
-    email = create_email(addr_from,conf['to'],subject,body,filenames)
+    email = create_email(addr_from,conf['to'].split(","),subject,body,filenames)
     
     conn = connect_smtp(conf)
     conn.send_message(email)
@@ -50,7 +51,7 @@ def create_email(addr_from,addr_to,subject,body,filenames):
     email = MIMEMultipart()
 
     email['From'] = addr_from
-    email['To'] = addr_to
+    email['To'] = COMMASPACE.join(addr_to)
     email['Subject'] = subject
     email.attach(MIMEText(body,'plain')) #body
     for filename in filenames:

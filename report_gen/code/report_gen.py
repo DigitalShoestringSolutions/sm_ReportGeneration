@@ -84,7 +84,8 @@ def do_analysis(client,org,bucket,window,email_conf):
     rate_fn = rate_report(query_api,org,bucket,start,end)
     prod_fn = production_report(query_api,org,bucket,start,end)
 
-    email_sender.send_email(email_conf,f"Production Report {datetime.date.today()}","Report Attached",[rate_fn,prod_fn])
+    if email_conf.get("send_email", True):
+        email_sender.send_email(email_conf,f"Production Report {datetime.date.today()}","Report Attached",[rate_fn,prod_fn])
 
 def production_report(query_api,org,bucket,start,end):
         query = f'''from(bucket: "{bucket}")
