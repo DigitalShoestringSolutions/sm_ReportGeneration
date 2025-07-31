@@ -1,0 +1,10 @@
+# Compiled and metadata file types
+**/__pycache__/
+**/.DS_Store
+
+# Explicit exclusions
+**/data/*
+output/
+
+# Explicit inclusions
+!**/.gitkeep
