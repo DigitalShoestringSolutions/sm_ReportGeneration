@@ -1,7 +1,6 @@
 # Compiled and metadata file types
-__pycache__/
-**/__pycache__/*
-*.DS_Store
+**/__pycache__/
+**/.DS_Store
 
 # Explicit exclusions
 **/data/*
